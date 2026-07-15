@@ -1,0 +1,18 @@
+Variable,Participant,Exposure,Value,IQR_outlier,z_gt_3
+SBP (mmHg),016,PT1,171.0,True,False
+SBP (mmHg),016,PT2,169.0,True,False
+DBP (mmHg),007,PT1,35.0,True,False
+DBP (mmHg),008,PT1,34.0,True,False
+DBP (mmHg),007,PT2,33.0,True,False
+MAP (mmHg),007,PT1,65.0,True,False
+MAP (mmHg),008,PR1,99.0,True,False
+MAP (mmHg),008,PT1,67.0,True,False
+MAP (mmHg),007,PT2,56.0,True,True
+MAP (mmHg),008,PR2,104.0,True,False
+SSNA (%baseline),009,PT1,2703.129,True,False
+SSNA (%baseline),011,PT1,2819.512,True,False
+SSNA (%baseline),018,PT1,2199.0,True,False
+SSNA (%baseline),009,PT2,3342.767,True,False
+SSNA (%baseline),011,PT2,2863.913,True,False
+Change (post-pre) in nude body weight (kg),008,PR2,-3.09,True,True
+Change (post-pre) in nude body weight (kg),008,PT2,-3.09,True,True

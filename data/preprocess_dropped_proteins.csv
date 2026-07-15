@@ -1,0 +1,7 @@
+Protein,Reason,MissingFrac,Variance
+IGFBP2,missing>20%,1.0,
+PCOLCE,missing>20%,1.0,
+ALDH3A1,missing>20%,1.0,
+PVALB,missing>20%,1.0,
+TACSTD2,missing>20%,1.0,
+SERPINA1,variance<0.01,0.0,0.00459
