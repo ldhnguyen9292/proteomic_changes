@@ -1,5 +1,5 @@
 # Raw data — not tracked in the repo
-dataset_2/
+data/raw_data/
 
 # Notebooks
 *.ipynb

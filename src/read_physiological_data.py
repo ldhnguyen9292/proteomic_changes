@@ -15,19 +15,33 @@ from pathlib import Path
 
 import pandas as pd
 
-PROJECT_DIR = Path(__file__).resolve().parent
-# dataset_2 lives next to this script inside the project.
-DATA_PATH = PROJECT_DIR / "dataset_2" / "Physiological_data.xlsx"
-# Cleaned long-format output kept in the project root (dataset_2 is git-ignored).
-CLEANED_PATH = PROJECT_DIR / "Physiological_Data_Cleaned.csv"
+# This script lives in src/; the project root is one level up.
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = PROJECT_DIR / "data"
+# Raw workbook (git-ignored) inside data/raw_data/.
+DATA_PATH = DATA_DIR / "raw_data" / "Physiological_data.xlsx"
+# Cleaned long-format output written into data/.
+CLEANED_PATH = DATA_DIR / "Physiological_Data_Cleaned.csv"
 
 # Row indices in the raw sheet (0-based, header=None).
 HEADER_ROW = 2
 PRE_ROWS = slice(3, 13)    # 10 Pre-acclimation participants (rows 3..12)
 POST_ROWS = slice(18, 28)  # 10 Post-acclimation participants (rows 18..27)
 
+# Olink NPX "Exposure" code semantics (npx/ folder):
+#   PR = Normal (Normothermic),  PT = Hot (Hyperthermic)
+#   ...1 = before thermal adaptation (Pre),  ...2 = after thermal adaptation (Post)
+# Keyed by (Thermal_Stage, Acclimation) so physiology rows carry the same code
+# as the NPX files and can be joined directly.
+EXPOSURE_FROM_STAGE = {
+    ("Normothermic", "Pre"): "PR1",
+    ("Hyperthermic", "Pre"): "PT1",
+    ("Normothermic", "Post"): "PR2",
+    ("Hyperthermic", "Post"): "PT2",
+}
+
 # Categorical key columns that should lead the tidy frame.
-KEY_COLS = ["Participant", "Acclimation", "Thermal_Stage"]
+KEY_COLS = ["Participant", "Acclimation", "Thermal_Stage", "Exposure"]
 
 
 def process_thermal_stages(sub_df: pd.DataFrame, acclimation_label: str) -> pd.DataFrame:
@@ -79,6 +93,12 @@ def read_physiological_data(path: Path = DATA_PATH) -> pd.DataFrame:
     post_processed = process_thermal_stages(post_df, "Post")
 
     final_dataset = pd.concat([pre_processed, post_processed], axis=0, ignore_index=True)
+
+    # Encode the NPX Exposure code (PR1/PT1/PR2/PT2) from thermal stage + acclimation.
+    final_dataset["Exposure"] = [
+        EXPOSURE_FROM_STAGE[(stage, accl)]
+        for stage, accl in zip(final_dataset["Thermal_Stage"], final_dataset["Acclimation"])
+    ]
 
     # Lead with the categorical keys, keep the rest in their original order.
     remaining_cols = [c for c in final_dataset.columns if c not in KEY_COLS]
