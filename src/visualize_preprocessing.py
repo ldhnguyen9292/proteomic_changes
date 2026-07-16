@@ -7,9 +7,10 @@ Figures produced:
   results/session_distributions.png     -- session-level variables (measured once
       per acclimation session, identical across thermal stages) split by
       acclimation only, Pre --> Post.
-  results/protein_missingness.png       -- protein missingness profile with the
-      drop threshold, and the low-variance profile with its threshold.
-  results/protein_filtering_summary.png -- proteins kept vs dropped (by reason).
+  results/protein_missingness.png       -- protein missingness and variance
+      profiles (proteins missing in > 20/40 samples are removed; no variance
+      threshold).
+  results/protein_filtering_summary.png -- proteins kept vs removed (missing).
   results/preprocessing_summary.png     -- table of QC/preprocessing problems
       found and the action taken for each (numbers derived from the data).
 
@@ -24,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 from read_physiological_data import DATA_DIR, PROJECT_DIR
-from preprocess import MAX_MISSING_FRAC, MIN_VARIANCE, PHYS_META, KEYS, OUTLIERS_PATH
+from preprocess import MAX_MISSING_FRAC, PHYS_META, KEYS, OUTLIERS_PATH
 
 RESULTS_DIR = PROJECT_DIR / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
@@ -203,7 +204,9 @@ def plot_protein_missingness(miss_pct, variance):
     thr = MAX_MISSING_FRAC * 100
     ax1.axvline(np.interp(thr, counts.index, range(len(counts))),
                 color=C_THRESH, linestyle="--", linewidth=1.4)
-    ax1.text(0.97, 0.95, f"drop > {thr:g}% missing\n(removes {(miss_pct > thr).sum()})",
+    ax1.text(0.97, 0.95,
+             f"drop > {int(MAX_MISSING_FRAC * 40)}/40 ({thr:g}%) missing\n"
+             f"(removes {int((miss_pct > thr).sum())})",
              transform=ax1.transAxes, ha="right", va="top", color=C_THRESH, fontsize=9)
 
     # -- Variance: histogram on log10 axis --
@@ -213,16 +216,11 @@ def plot_protein_missingness(miss_pct, variance):
     ax2.set_xlabel("log10(variance)  [NPX, log2 scale]")
     ax2.set_ylabel("Number of proteins")
     ax2.set_title("Protein variance")
-    if MIN_VARIANCE > 0:
-        ax2.axvline(np.log10(MIN_VARIANCE), color=C_THRESH,
-                    linestyle="--", linewidth=1.4)
-        note = f"drop variance < {MIN_VARIANCE}\n(removes {(variance < MIN_VARIANCE).sum()})"
-    else:
-        note = "no variance filter\n(all proteins kept)"
-    ax2.text(0.03, 0.95, note, transform=ax2.transAxes, ha="left", va="top",
+    ax2.text(0.03, 0.95, "no variance filter\n(all proteins kept)",
+             transform=ax2.transAxes, ha="left", va="top",
              color=C_THRESH, fontsize=9)
 
-    fig.suptitle("Protein filters: missingness & variance",
+    fig.suptitle("Protein QC profile: missingness & variance",
                  fontsize=12, fontweight="bold")
     fig.tight_layout()
     out = RESULTS_DIR / "protein_missingness.png"
@@ -232,17 +230,12 @@ def plot_protein_missingness(miss_pct, variance):
 
 
 def plot_filtering_summary(n_total, dropped):
-    n_miss = int((dropped["Reason"].str.startswith("missing")).sum())
-    n_var = int((dropped["Reason"].str.startswith("variance")).sum())
-    n_keep = n_total - n_miss - n_var
+    n_drop = len(dropped)
+    n_keep = n_total - n_drop
 
-    labels = ["Kept", f"Dropped: missing > {MAX_MISSING_FRAC:.0%}"]
-    values = [n_keep, n_miss]
+    labels = ["Kept", f"Dropped: missing > {int(MAX_MISSING_FRAC * 40)}/40"]
+    values = [n_keep, n_drop]
     colors = [C_KEEP, C_DROP_MISS]
-    if MIN_VARIANCE > 0:  # only show the variance category when the filter is on
-        labels.append(f"Dropped: variance < {MIN_VARIANCE}")
-        values.append(n_var)
-        colors.append(C_DROP_VAR)
 
     fig, ax = plt.subplots(figsize=(9, 3.2))
     _recessive(ax)
@@ -279,9 +272,12 @@ def plot_preprocessing_summary(phys, merged, dropped):
     n_missing = int(phys.isna().sum().sum())
     id_only_phys = sorted(set(phys["Participant"]) - set(merged["Participant"]))
 
-    miss_list = dropped.loc[dropped["Reason"].str.startswith("missing"), "Protein"].tolist()
-    var_list = dropped.loc[dropped["Reason"].str.startswith("variance"), "Protein"].tolist()
+    qc_fail_list = dropped["Protein"].tolist()
     n_total, n_kept = len(protein_cols), len(protein_cols) - len(dropped)
+    # Individual sample-assays excluded by QC (NaN) among the retained proteins.
+    kept_cols = [c for c in protein_cols if c not in set(qc_fail_list)]
+    n_sample_qc = int(merged[kept_cols].isna().values.sum())
+    n_sample_tot = len(merged) * len(kept_cols)
 
     outliers = pd.read_csv(OUTLIERS_PATH)
     short = lambda v: ("body-weight change" if v.startswith("Change")
@@ -307,21 +303,17 @@ def plot_preprocessing_summary(phys, merged, dropped):
          "IQR (1.5×) rule and |z-score| > 3 per variable",
          "Flagged only, NOT removed — physiologically plausible extremes "
          "(e.g. heat vasodilation, SSNA %baseline)"),
-        ("Filter", "Proteins with excessive missingness",
-         f"Missing in > {MAX_MISSING_FRAC:.0%} of {len(merged)} samples",
-         f"Dropped {len(miss_list)}: {', '.join(miss_list)}"),
+        ("QC", "Individual sample-assays failing QC",
+         "Olink QC_Warning = WARN",
+         f"Excluded {n_sample_qc} ({100 * n_sample_qc / n_sample_tot:.1f}%) of "
+         f"{n_sample_tot}; set to NaN, complete pairs used, not imputed"),
+        ("Filter", "Proteins missing in > 20/40 samples",
+         "QC-excluded (NaN) in more than half the samples",
+         f"Removed {len(qc_fail_list)}: {', '.join(qc_fail_list)}"),
+        ("Filter", "Below-LOD / low-detection proteins",
+         "Per-assay below-LOD frequency (Olink MissingFreq)",
+         "Retained, NOT imputed — below-LOD is not counted as 'missing'"),
     ]
-    if MIN_VARIANCE > 0:
-        rows.append((
-            "Filter", "Near-constant (low-variance) proteins",
-            f"NPX variance < {MIN_VARIANCE} (among proteins surviving the "
-            f"missingness filter)",
-            f"Dropped {len(var_list)}: {', '.join(var_list)}"))
-    else:
-        rows.append((
-            "Filter", "Low-variance proteins",
-            "Variance filter disabled (MIN_VARIANCE = 0)",
-            "None removed — all proteins passing the missingness filter are kept"))
 
     col_labels = ["Stage", "Problem", "How it was detected",
                   "Action taken & outcome"]

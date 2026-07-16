@@ -1,6 +1,6 @@
-Protein,Reason,MissingFrac,Variance
-IGFBP2,missing>20%,1.0,
-PCOLCE,missing>20%,1.0,
-ALDH3A1,missing>20%,1.0,
-PVALB,missing>20%,1.0,
-TACSTD2,missing>20%,1.0,
+Protein,Reason,MissingFrac
+IGFBP2,missing in > 20/40 samples,1.0
+PCOLCE,missing in > 20/40 samples,1.0
+ALDH3A1,missing in > 20/40 samples,1.0
+PVALB,missing in > 20/40 samples,1.0
+TACSTD2,missing in > 20/40 samples,1.0

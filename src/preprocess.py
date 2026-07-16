@@ -8,8 +8,9 @@ It performs:
   1. QC   -- duplicated samples, inconsistent identifiers, missing values.
   2. EDA  -- distribution summary + potential outliers for physiology variables
              (flagged, NOT removed: n is small and the extremes are biological).
-  3. Protein filtering -- drop proteins with excessive missingness or extremely
-     low variance before downstream analysis.
+  3. Protein filtering -- remove proteins missing (QC-excluded) in more than
+     20/40 samples; below-LOD values are kept, not imputed, and no variance
+     threshold is applied.
 
 Outputs:
   - data/Physiological_NPX_Preprocessed.csv   (filtered, downstream-ready)
@@ -24,14 +25,12 @@ import pandas as pd
 
 from read_physiological_data import DATA_DIR
 
-# ---- Filtering thresholds (edit here) -------------------------------------
-# Drop a protein if it is missing in more than this fraction of samples.
-MAX_MISSING_FRAC = 0.20
-# Drop a protein if its variance (NPX, log2 scale) is below this value.
-# 0.0 disables the variance filter: every protein passing the missingness
-# filter is retained (a near-constant protein simply carries no signal and is
-# handled gracefully downstream), so no protein is removed for low variance.
-MIN_VARIANCE = 0.0
+# ---- Protein filtering policy ---------------------------------------------
+# Remove a protein if it is missing (QC-excluded) in MORE than 20 of the 40
+# samples (> 50%). Below-LOD values are NOT counted as missing -- they are
+# retained and NOT imputed, so proteins mostly below the limit of detection
+# stay in the analysis. No variance threshold is applied.
+MAX_MISSING_FRAC = 0.5   # drop a protein missing in > 20/40 samples
 # ---------------------------------------------------------------------------
 
 PHYS_PATH = DATA_DIR / "Physiological_Data_Cleaned.csv"
@@ -117,39 +116,30 @@ def filter_proteins(merged, phys_cols):
     proteins = merged[protein_cols]
     n = len(merged)
 
-    miss_frac = proteins.isna().mean()
-    variance = proteins.var(numeric_only=True)
+    miss_count = proteins.isna().sum()
+    miss_frac = miss_count / n
+    n_sample_qc = int(proteins.isna().values.sum())
+    thr = int(round(MAX_MISSING_FRAC * n))  # 20 of 40
 
     print(f"proteins in       : {len(protein_cols)}")
-    print("\nmissingness (% of samples) sensitivity:")
-    for thr in [0.0, 0.05, 0.10, 0.20, 0.50]:
-        print(f"   > {int(thr*100):3d}% missing : {(miss_frac > thr).sum()}")
-    print("\nvariance sensitivity:")
-    for thr in [0.005, 0.01, 0.02, 0.05]:
-        print(f"   variance < {thr:<5}: {(variance < thr).sum()}")
+    print(f"sample-assay QC exclusions (NaN) : {n_sample_qc} "
+          f"({100 * n_sample_qc / proteins.size:.1f}% of {proteins.size})")
+    print(f"\nmissingness (n of {n} samples) profile:")
+    for k in [0, 2, 4, 8, 20]:
+        print(f"   > {k:2d}/{n} missing : {int((miss_count > k).sum())}")
 
+    # Remove a protein missing (QC-excluded) in more than 20/40 samples.
+    # Below-LOD values are NOT missing (kept, not imputed); no variance filter.
     drop_missing = miss_frac[miss_frac > MAX_MISSING_FRAC].index
-    # Only consider variance among proteins that survived the missing filter.
-    surviving = [c for c in protein_cols if c not in set(drop_missing)]
-    var_surv = merged[surviving].var(numeric_only=True)
-    drop_lowvar = var_surv[var_surv < MIN_VARIANCE].index
+    keep_proteins = [c for c in protein_cols if c not in set(drop_missing)]
 
     dropped = pd.DataFrame(
-        [{"Protein": p, "Reason": f"missing>{MAX_MISSING_FRAC:.0%}",
-          "MissingFrac": round(miss_frac[p], 3), "Variance": round(variance[p], 5)
-          if pd.notna(variance[p]) else np.nan} for p in drop_missing]
-        + [{"Protein": p, "Reason": f"variance<{MIN_VARIANCE}",
-            "MissingFrac": round(miss_frac[p], 3), "Variance": round(variance[p], 5)}
-           for p in drop_lowvar]
+        [{"Protein": p, "Reason": f"missing in > {thr}/{n} samples",
+          "MissingFrac": round(float(miss_frac[p]), 3)} for p in drop_missing]
     )
 
-    keep_proteins = [c for c in protein_cols
-                     if c not in set(drop_missing) | set(drop_lowvar)]
-
-    print(f"\nDROPPED (missing > {MAX_MISSING_FRAC:.0%})   : "
+    print(f"\nDROPPED (missing in > {thr}/{n} samples): "
           f"{len(drop_missing)}  {list(drop_missing)}")
-    print(f"DROPPED (variance < {MIN_VARIANCE}): "
-          f"{len(drop_lowvar)}  {list(drop_lowvar)}")
     print(f"proteins kept     : {len(keep_proteins)}")
     return keep_proteins, dropped
 
