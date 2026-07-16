@@ -28,7 +28,10 @@ from read_physiological_data import DATA_DIR
 # Drop a protein if it is missing in more than this fraction of samples.
 MAX_MISSING_FRAC = 0.20
 # Drop a protein if its variance (NPX, log2 scale) is below this value.
-MIN_VARIANCE = 0.01
+# 0.0 disables the variance filter: every protein passing the missingness
+# filter is retained (a near-constant protein simply carries no signal and is
+# handled gracefully downstream), so no protein is removed for low variance.
+MIN_VARIANCE = 0.0
 # ---------------------------------------------------------------------------
 
 PHYS_PATH = DATA_DIR / "Physiological_Data_Cleaned.csv"

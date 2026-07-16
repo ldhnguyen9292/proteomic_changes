@@ -210,14 +210,17 @@ def plot_protein_missingness(miss_pct, variance):
     _recessive(ax2)
     logv = np.log10(variance.dropna())
     ax2.hist(logv, bins=45, color=C_NORMO, alpha=0.85, zorder=2)
-    ax2.axvline(np.log10(MIN_VARIANCE), color=C_THRESH,
-                linestyle="--", linewidth=1.4)
     ax2.set_xlabel("log10(variance)  [NPX, log2 scale]")
     ax2.set_ylabel("Number of proteins")
     ax2.set_title("Protein variance")
-    ax2.text(0.03, 0.95,
-             f"drop variance < {MIN_VARIANCE}\n(removes {(variance < MIN_VARIANCE).sum()})",
-             transform=ax2.transAxes, ha="left", va="top", color=C_THRESH, fontsize=9)
+    if MIN_VARIANCE > 0:
+        ax2.axvline(np.log10(MIN_VARIANCE), color=C_THRESH,
+                    linestyle="--", linewidth=1.4)
+        note = f"drop variance < {MIN_VARIANCE}\n(removes {(variance < MIN_VARIANCE).sum()})"
+    else:
+        note = "no variance filter\n(all proteins kept)"
+    ax2.text(0.03, 0.95, note, transform=ax2.transAxes, ha="left", va="top",
+             color=C_THRESH, fontsize=9)
 
     fig.suptitle("Protein filters: missingness & variance",
                  fontsize=12, fontweight="bold")
@@ -233,10 +236,13 @@ def plot_filtering_summary(n_total, dropped):
     n_var = int((dropped["Reason"].str.startswith("variance")).sum())
     n_keep = n_total - n_miss - n_var
 
-    labels = ["Kept", f"Dropped: missing > {MAX_MISSING_FRAC:.0%}",
-              f"Dropped: variance < {MIN_VARIANCE}"]
-    values = [n_keep, n_miss, n_var]
-    colors = [C_KEEP, C_DROP_MISS, C_DROP_VAR]
+    labels = ["Kept", f"Dropped: missing > {MAX_MISSING_FRAC:.0%}"]
+    values = [n_keep, n_miss]
+    colors = [C_KEEP, C_DROP_MISS]
+    if MIN_VARIANCE > 0:  # only show the variance category when the filter is on
+        labels.append(f"Dropped: variance < {MIN_VARIANCE}")
+        values.append(n_var)
+        colors.append(C_DROP_VAR)
 
     fig, ax = plt.subplots(figsize=(9, 3.2))
     _recessive(ax)
@@ -304,11 +310,18 @@ def plot_preprocessing_summary(phys, merged, dropped):
         ("Filter", "Proteins with excessive missingness",
          f"Missing in > {MAX_MISSING_FRAC:.0%} of {len(merged)} samples",
          f"Dropped {len(miss_list)}: {', '.join(miss_list)}"),
-        ("Filter", "Near-constant (low-variance) proteins",
-         f"NPX variance < {MIN_VARIANCE} (among proteins surviving the "
-         f"missingness filter)",
-         f"Dropped {len(var_list)}: {', '.join(var_list)}"),
     ]
+    if MIN_VARIANCE > 0:
+        rows.append((
+            "Filter", "Near-constant (low-variance) proteins",
+            f"NPX variance < {MIN_VARIANCE} (among proteins surviving the "
+            f"missingness filter)",
+            f"Dropped {len(var_list)}: {', '.join(var_list)}"))
+    else:
+        rows.append((
+            "Filter", "Low-variance proteins",
+            "Variance filter disabled (MIN_VARIANCE = 0)",
+            "None removed — all proteins passing the missingness filter are kept"))
 
     col_labels = ["Stage", "Problem", "How it was detected",
                   "Action taken & outcome"]

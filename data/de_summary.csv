@@ -1,4 +1,0 @@
-contrast,comparison,description,n_tested,changed_fdr05,up,down,strict_fdr01,wilcoxon_fdr05,abstract
-pre_heat,PT1 vs PR1,"Heat stress, before acclimation",2937,36,32,4,9,0,~1% (n=29) changed; 9 reached the p value threshold
-acclim,PR2 vs PR1,"Acclimation effect, normothermic (rest)",2937,2,2,0,0,0,54 changed (normothermic)
-post_heat,PT2 vs PR2,"Heat stress, after acclimation",2937,37,30,7,1,0,"175 up (~6%), 19 down (~0.6%); 180 unique to post-acclimation"
