@@ -92,7 +92,7 @@ def evaluate(obj, trait, module=None, name=None, ax=None,
     print(f"  [1] topology    : power={power}, R^2={r2:.3f}   "
           f"{ok(r2 > r2_cut)} (>{r2_cut})")
     print(f"  [2] module-trait: r={r:+.3f}, p={p:.3g}, FDR={fdr:.3g}   "
-          f"{ok(abs(r) > mt_cut and fdr < 0.05)} (|r|>{mt_cut} & FDR<0.05)")
+          f"{ok(abs(r) >= mt_cut and fdr < 0.05)} (|r|>={mt_cut} & FDR<0.05)")
     print(f"  [3] MM vs GS    : r={mmgs_r:+.3f}, p={mmgs_p:.2g}   "
           f"{ok(abs(mmgs_r) > mmgs_cut and mmgs_p < 0.05)} (|r|>{mmgs_cut} & p<0.05)")
     print(f"      hubs (|MM|>{mm_hub} & |GS|>{gs_hub}): {list(hubs.index) or 'none'}")
