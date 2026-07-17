@@ -80,7 +80,8 @@ def main():
         ex = tr.index.str.split('-').str[-1]
         nets = {'full': None,
                 'PR1/PT1': pd.Series(ex.isin(['PR1', 'PT1']), index=tr.index),
-                'PR2/PT2': pd.Series(ex.isin(['PR2', 'PT2']), index=tr.index)}
+                'PR2/PT2': pd.Series(ex.isin(['PR2', 'PT2']), index=tr.index),
+                'PT1/PT2': pd.Series(ex.isin(['PT1', 'PT2']), index=tr.index)}
         for net, mask in nets.items():
             o = fit(expr, tr, mask)
             nmod = o.MEs.shape[1]
@@ -95,7 +96,7 @@ def main():
 
 def _plot(df):
     cases = list(CASES.keys())
-    keys = [(net, tr) for net in ['full', 'PR1/PT1', 'PR2/PT2'] for tr in SWEAT]
+    keys = [(net, tr) for net in ['full', 'PR1/PT1', 'PR2/PT2', 'PT1/PT2'] for tr in SWEAT]
 
     def fmt(row):
         star = " *" if abs(row['r']) > 0.6 and row['p'] < 0.05 else ""
