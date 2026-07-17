@@ -18,11 +18,14 @@ Outputs:
   - data/preprocess_physiology_outliers.csv   (flagged physiology outliers)
 """
 
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+# shared ingestion modules live in src/data_pipeline/
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "data_pipeline"))
 from read_physiological_data import DATA_DIR
 
 # ---- Protein filtering policy ---------------------------------------------
@@ -35,9 +38,12 @@ MAX_MISSING_FRAC = 0.5   # drop a protein missing in > 20/40 samples
 
 PHYS_PATH = DATA_DIR / "Physiological_Data_Cleaned.csv"
 MERGED_PATH = DATA_DIR / "Physiological_NPX_Merged.csv"
-OUT_PATH = DATA_DIR / "Physiological_NPX_Preprocessed.csv"
-DROPPED_PATH = DATA_DIR / "preprocess_dropped_proteins.csv"
-OUTLIERS_PATH = DATA_DIR / "preprocess_physiology_outliers.csv"
+# Differential-expression outputs live in their own subfolder.
+OUT_DIR = DATA_DIR / "differential_expression"
+OUT_DIR.mkdir(exist_ok=True)
+OUT_PATH = OUT_DIR / "Physiological_NPX_Preprocessed.csv"
+DROPPED_PATH = OUT_DIR / "preprocess_dropped_proteins.csv"
+OUTLIERS_PATH = OUT_DIR / "preprocess_physiology_outliers.csv"
 
 KEYS = ["Participant", "Exposure"]
 PHYS_META = ["Participant", "Acclimation", "Thermal_Stage", "Exposure"]

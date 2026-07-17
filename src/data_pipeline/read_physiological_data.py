@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pandas as pd
 
-# This script lives in src/; the project root is one level up.
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+# This script lives in src/data_pipeline/; the project root is two levels up.
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_DIR / "data"
 # Raw workbook (git-ignored) inside data/raw_data/.
 DATA_PATH = DATA_DIR / "raw_data" / "Physiological_data.xlsx"

@@ -14,6 +14,9 @@ merged data + olink_raw, then renders a 6-panel overview:
 Run after preprocess_wgcna.py.
 """
 
+import sys
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -21,12 +24,15 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
+# shared ingestion modules live in src/data_pipeline/
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "data_pipeline"))
 from read_physiological_data import DATA_DIR, PROJECT_DIR
 from preprocess_wgcna import (MERGED_PATH, MAX_MISSING_FRAC, _load_raw_long,
                               below_lod_matrix)
 
-RESULTS_DIR = PROJECT_DIR / "results"
-EXPR_PATH = DATA_DIR / "wgcna_expression.csv"
+RESULTS_DIR = PROJECT_DIR / "results" / "wgcna" / "impute"
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+EXPR_PATH = DATA_DIR / "wgcna" / "impute" / "wgcna_expression.csv"
 
 C_THRESH = "#CC3311"
 GRID = "#DDDDDD"

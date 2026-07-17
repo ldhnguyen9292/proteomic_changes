@@ -17,6 +17,7 @@ Figures produced:
 Run after preprocess.py (it reads the same artifacts).
 """
 
+import sys
 import textwrap
 from pathlib import Path
 
@@ -24,11 +25,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+# shared ingestion modules live in src/data_pipeline/
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "data_pipeline"))
 from read_physiological_data import DATA_DIR, PROJECT_DIR
-from preprocess import MAX_MISSING_FRAC, PHYS_META, KEYS, OUTLIERS_PATH
+from preprocess import MAX_MISSING_FRAC, PHYS_META, KEYS, OUTLIERS_PATH, DROPPED_PATH
 
-RESULTS_DIR = PROJECT_DIR / "results"
-RESULTS_DIR.mkdir(exist_ok=True)
+RESULTS_DIR = PROJECT_DIR / "results" / "preprocessing"
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Okabe-Ito colorblind-safe palette (validated, widely used for CVD safety).
 C_NORMO = "#0072B2"   # blue  -> Normothermic (cool)
@@ -362,7 +365,7 @@ def plot_preprocessing_summary(phys, merged, dropped):
 def main():
     phys = pd.read_csv(DATA_DIR / "Physiological_Data_Cleaned.csv")
     merged = pd.read_csv(DATA_DIR / "Physiological_NPX_Merged.csv")
-    dropped = pd.read_csv(DATA_DIR / "preprocess_dropped_proteins.csv")
+    dropped = pd.read_csv(DROPPED_PATH)
 
     phys_cols = [c for c in merged.columns if c in phys.columns]
     protein_cols = [c for c in merged.columns if c not in phys_cols]

@@ -27,18 +27,24 @@ Run after merge_physiological_npx.py.
 """
 
 import glob
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import pdist, squareform
 from sklearn.impute import KNNImputer
 
+# shared ingestion modules live in src/data_pipeline/
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "data_pipeline"))
 from read_physiological_data import DATA_DIR
 
 MERGED_PATH = DATA_DIR / "Physiological_NPX_Merged.csv"
 OLINK_RAW_DIR = DATA_DIR / "raw_data" / "olink_raw"
-EXPR_OUT = DATA_DIR / "wgcna_expression.csv"
-TRAITS_OUT = DATA_DIR / "wgcna_traits.csv"
+OUT_DIR = DATA_DIR / "wgcna" / "impute"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+EXPR_OUT = OUT_DIR / "wgcna_expression.csv"
+TRAITS_OUT = OUT_DIR / "wgcna_traits.csv"
 
 # ---- WGCNA filtering parameters (edit here) -------------------------------
 MAX_MISSING_FRAC = 0.10   # drop a protein missing (NaN or < LOD) in > 10% of samples

@@ -1,103 +1,117 @@
 # proteomic_changes
 
-Processing pipeline for the study **"Proteomic changes during human heat stress
-and heat acclimation."** It reshapes the raw physiological measurements into a
-tidy table and merges them with the Olink NPX proteomics panels.
+Analysis pipeline for **"Proteomic changes during human heat stress and heat
+acclimation."** Olink NPX proteomics + physiology from 10 participants × 4
+exposures. A shared ingestion step feeds two analysis tracks:
+
+1. **differential_expression** — QC/preprocessing + paired differential-expression
+   (reproduction of the source study's contrasts).
+2. **wgcna** — weighted co-expression networks relating protein modules to
+   physiological traits (primary outcome: sweat rate), with two missing-data
+   workflows (impute vs complete-case) plus a comparison.
 
 ## Repository layout
 
 ```
 proteomic_changes/
-├── src/                              # Python scripts
-│   ├── read_physiological_data.py    # raw Excel -> tidy long-format physiology
-│   ├── merge_physiological_npx.py    # join physiology + NPX panels by sample
-│   ├── preprocess.py                 # QC + protein filtering -> preprocessed data
-│   └── visualize_preprocessing.py    # QC/EDA figures -> results/
+├── src/
+│   ├── data_pipeline/                     # shared ingestion (imported by all)
+│   │   ├── read_physiological_data.py     #   raw xlsx -> Physiological_Data_Cleaned.csv
+│   │   └── merge_physiological_npx.py     #   + npx/   -> Physiological_NPX_Merged.csv
+│   ├── differential_expression/
+│   │   ├── preprocess.py                  #   QC + filtering -> data/differential_expression/
+│   │   ├── visualize_preprocessing.py     #   QC/EDA figures -> results/preprocessing/
+│   │   └── pair_t-test.ipynb              #   paired differential-expression analysis
+│   └── wgcna/
+│       ├── preprocess_wgcna.py            #   impute workflow   -> data/wgcna/impute/
+│       ├── preprocess_wgcna_complete.py   #   complete-case     -> data/wgcna/complete/
+│       ├── visualize_wgcna.py             #   -> results/wgcna/impute/
+│       ├── visualize_wgcna_complete.py    #   -> results/wgcna/complete/
+│       ├── compare_wgcna.py               #   -> results/wgcna/impute_vs_complete.png
+│       ├── model_development.ipynb            # WGCNA on the imputed set (1707 proteins)
+│       └── model_development_complete.ipynb   # WGCNA on the complete set (868 proteins)
 ├── data/
-│   ├── raw_data/                     # RAW DATA (not tracked — download separately)
-│   ├── Physiological_Data_Cleaned.csv    # from read_physiological_data.py
-│   ├── Physiological_NPX_Merged.csv      # from merge_physiological_npx.py
-│   ├── Physiological_NPX_Preprocessed.csv # from preprocess.py (downstream-ready)
-│   ├── preprocess_dropped_proteins.csv   # provenance: dropped proteins & reason
-│   └── preprocess_physiology_outliers.csv # flagged physiology outliers
-└── results/                          # QC/EDA figures from visualize_preprocessing.py
+│   ├── raw_data/                          # RAW DATA (not tracked — download separately)
+│   ├── Physiological_Data_Cleaned.csv     # shared (read_physiological_data.py)
+│   ├── Physiological_NPX_Merged.csv       # shared (merge_physiological_npx.py)
+│   ├── differential_expression/           # Preprocessed + dropped + outlier logs
+│   └── wgcna/
+│       ├── impute/    wgcna_expression.csv, wgcna_traits.csv   # KNN-imputed
+│       └── complete/  wgcna_expression.csv, wgcna_traits.csv   # drop-any-missing
+└── results/
+    ├── preprocessing/                     # QC / preprocessing figures
+    └── wgcna/
+        ├── impute/    wgcna_preprocessing.png
+        ├── complete/  wgcna_preprocessing.png
+        └── impute_vs_complete.png         # side-by-side sweat comparison
 ```
 
 ## 1. Download the raw data
 
-The raw dataset is **not** stored in this repository. Download it from Figshare:
+Not stored in this repo. Download from Figshare and unzip under `data/raw_data/`:
 
 **https://figshare.com/projects/Proteomic_changes_during_human_heat_stress_and_heat_acclimation/163291**
-
-Unzip the download and arrange the files under `data/raw_data/` exactly as below
-(the scripts read `Physiological_data.xlsx` and the `npx/` panels):
 
 ```
 data/raw_data/
 ├── Physiological_data.xlsx
-├── npx/
-│   ├── cardiometabolic_npx.csv
-│   ├── cardiometabolic_ii_npx.csv
-│   ├── inflammation_npx.csv
-│   ├── inflammation_ii_npx.csv
-│   ├── neurology_npx.csv
-│   ├── neurology_ii_npx.csv
-│   ├── oncology_npx.csv
-│   └── oncology_ii_npx.csv
-├── delta_npx/        # optional (not used by the current scripts)
-├── fold_changes/     # optional
-└── olink_raw/        # optional
+├── npx/            # 8 per-panel NPX files (used by merge_physiological_npx.py)
+├── olink_raw/      # 2 long-format Olink exports (used for LOD / QC flags)
+├── delta_npx/      # per-subject paired differences
+└── fold_changes/   # group-level log2 fold changes
 ```
 
 ## 2. Install dependencies
 
-Requires Python 3.8+.
+Base scripts need Python 3.8+ with `pandas openpyxl numpy scipy scikit-learn matplotlib`.
+
+The **WGCNA notebooks** and `compare_wgcna.py` additionally require **PyWGCNA**,
+which here is installed under **Python 3.9** — run those with the Python 3.9
+kernel/interpreter.
+
+## 3. Run order
 
 ```bash
-pip install pandas openpyxl matplotlib seaborn
+# 1) shared ingestion
+python src/data_pipeline/read_physiological_data.py     # -> data/Physiological_Data_Cleaned.csv
+python src/data_pipeline/merge_physiological_npx.py     # -> data/Physiological_NPX_Merged.csv
+
+# 2) differential-expression track
+python src/differential_expression/preprocess.py            # -> data/differential_expression/
+python src/differential_expression/visualize_preprocessing.py  # -> results/preprocessing/
+#    then run src/differential_expression/pair_t-test.ipynb
+
+# 3) WGCNA track (impute + complete-case + comparison)
+python src/wgcna/preprocess_wgcna.py            # -> data/wgcna/impute/   (1707 proteins)
+python src/wgcna/visualize_wgcna.py             # -> results/wgcna/impute/
+python src/wgcna/preprocess_wgcna_complete.py   # -> data/wgcna/complete/ (868 proteins)
+python src/wgcna/visualize_wgcna_complete.py    # -> results/wgcna/complete/
+python src/wgcna/compare_wgcna.py               # -> results/wgcna/impute_vs_complete.png
+#    then run src/wgcna/model_development{,_complete}.ipynb  (Python 3.9 / PyWGCNA)
 ```
 
-## 3. Run
-
-From the repository root, run in order:
-
-```bash
-# 1) Reshape the raw physiological workbook into a tidy long table
-python src/read_physiological_data.py
-#    -> data/Physiological_Data_Cleaned.csv
-
-# 2) Merge physiology with the Olink NPX panels (by Participant + Exposure)
-python src/merge_physiological_npx.py
-#    -> data/Physiological_NPX_Merged.csv
-
-# 3) Quality control + protein filtering (prints a QC report)
-python src/preprocess.py
-#    -> data/Physiological_NPX_Preprocessed.csv  (+ dropped/outlier logs)
-
-# 4) Visualize the QC / preprocessing results
-python src/visualize_preprocessing.py
-#    -> results/*.png
-```
+`src/` is split into subfolders; each script prepends `src/data_pipeline/` to
+`sys.path` so the shared `read_physiological_data` module stays importable, and
+the notebooks do the same in their first cell.
 
 ## Preprocessing & QC
 
-`preprocess.py` checks for duplicated samples, inconsistent identifiers, and
-missing values; summarizes physiological distributions and flags potential
-outliers (kept, not removed — n is small and the extremes are biological); and
-removes proteins with excessive missingness (> 20% of samples) or extremely low
-variance (< 0.01). Both thresholds are constants at the top of the script, with a
-printed sensitivity table. `visualize_preprocessing.py` renders these into
-`results/`:
+**Protein filtering** removes only assays that failed QC (missing in > 20/40
+samples); below-LOD values are kept, not imputed, and no variance filter is
+applied. QC-excluded measurements (`QC_Warning=WARN`, ~3.0% of sample-assays)
+are set to NaN and handled by complete-pairs downstream.
 
-- `physiology_distributions.png` — per-variable boxplots by thermal stage.
-- `protein_missingness.png` — missingness and variance profiles with thresholds.
-- `protein_filtering_summary.png` — proteins kept vs dropped, by reason.
+**WGCNA "missing"** = QC-excluded **or** below the limit of detection:
+
+| workflow | proteins | missing-data handling |
+|----------|----------|-----------------------|
+| impute (`wgcna/impute`)   | 1707 | drop if > 10% missing, remainder KNN-imputed |
+| complete (`wgcna/complete`) | 868 | drop any protein with a missing value (no imputation) |
 
 ## Data notes
 
-- **Exposure codes** encode the two experimental factors: the letters give the
-  thermal stage (`PR` = Normothermic, `PT` = Hyperthermic) and the digit gives
-  the acclimation state (`1` = before / Pre, `2` = after / Post).
+- **Exposure codes**: letters = thermal stage (`PR` = Normothermic, `PT` =
+  Hyperthermic), digit = acclimation (`1` = Pre, `2` = Post).
 
   | Code | Thermal stage | Acclimation |
   |------|---------------|-------------|
@@ -106,8 +120,8 @@ printed sensitivity table. `visualize_preprocessing.py` renders these into
   | PR2  | Normothermic  | Post        |
   | PT2  | Hyperthermic  | Post        |
 
-- Participant IDs are normalized when merging: physiology uses `001-B` while the
-  NPX files use `001B`.
-- A few Olink bridge assays appear on multiple panels (`CXCL8`, `IL6`, `TNF`,
-  `IDO1`, `LMOD1`, `SCRIB`). In the merged file these are suffixed with the panel
-  name (e.g. `IL6__Inflammation`) so no measurement is overwritten.
+- NPX values are **log2**; a paired difference is a log2 fold-change.
+- Participant IDs are normalized on merge: physiology `001-B` vs NPX `001B`.
+- Bridge assays on multiple panels (`CXCL8`, `IL6`, `TNF`, `IDO1`, `LMOD1`,
+  `SCRIB`) are suffixed with the panel name (e.g. `IL6__Inflammation`) so no
+  measurement is overwritten.
