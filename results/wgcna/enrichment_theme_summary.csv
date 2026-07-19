@@ -1,0 +1,8 @@
+case,module,n_terms,heat adaptation,stress response,immune,vascular,electrolyte transport
+impute,PR2_PT2_black,534,0,11,87,23,6
+impute,PT1_PT2_darkgrey,182,0,3,19,12,5
+impute,PT1_PT2_dimgrey,77,0,1,12,1,0
+impute,PT1_PT2_lightgrey,383,1,0,95,12,4
+impute,full_black,387,1,9,64,13,5
+complete,PR2_PT2_black,617,2,6,112,36,5
+complete,PT1_PT2_black,579,1,8,93,31,13
