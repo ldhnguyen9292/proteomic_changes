@@ -21,6 +21,7 @@ proteomic_changes/
 │   ├── differential_expression/
 │   │   ├── preprocess.py                  #   QC + filtering -> data/differential_expression/
 │   │   ├── visualize_preprocessing.py     #   QC/EDA figures -> results/preprocessing/
+│   │   ├── check_acclimation_specificity.py  # tests the "180 only after acclimation" claim
 │   │   └── pair_t-test.ipynb              #   paired differential-expression analysis
 │   └── wgcna/
 │       ├── preprocess_wgcna.py            #   impute workflow   -> data/wgcna/impute/
@@ -79,6 +80,7 @@ python src/data_pipeline/merge_physiological_npx.py     # -> data/Physiological_
 # 2) differential-expression track
 python src/differential_expression/preprocess.py            # -> data/differential_expression/
 python src/differential_expression/visualize_preprocessing.py  # -> results/preprocessing/
+python src/differential_expression/check_acclimation_specificity.py  # "180" reproducibility check
 #    then run src/differential_expression/pair_t-test.ipynb
 
 # 3) WGCNA track (impute + complete-case + comparison)
@@ -101,12 +103,31 @@ samples); below-LOD values are kept, not imputed, and no variance filter is
 applied. QC-excluded measurements (`QC_Warning=WARN`, ~3.0% of sample-assays)
 are set to NaN and handled by complete-pairs downstream.
 
-**WGCNA "missing"** = QC-excluded **or** below the limit of detection:
+**Reproducibility check — "180 changed only after acclimation".** The study derives
+"180" by *set subtraction* (proteins passing the cut-off in post-acclimation heat
+stress but not pre-acclimation). `check_acclimation_specificity.py` shows this is a
+thresholding artifact: the correct test — the `Thermal_Stage × Acclimation`
+interaction (a per-protein one-sample t-test on `(PT2−PR2)−(PT1−PR1)`, identical to
+the two-way RM-ANOVA interaction) — finds **0** proteins at BH-FDR < 0.05, and its
+nominal count (153) sits at the chance level (~147). The interaction p-values are
+uniform (`results/preprocessing/acclimation_specificity.png`). This is the classic
+"difference between significant and non-significant is not itself significant"
+fallacy (Gelman & Stern, 2006).
 
-| workflow | proteins | missing-data handling |
-|----------|----------|-----------------------|
-| impute (`wgcna/impute`)   | 1707 | drop if > 10% missing, remainder KNN-imputed |
-| complete (`wgcna/complete`) | 868 | drop any protein with a missing value (no imputation) |
+**WGCNA "missing"** = QC-excluded (`QC_Warning=WARN`) **or** below the limit of
+detection. Three missing-value scenarios were tested and compared on the sweat
+modules (`results/wgcna/preprocessing_comparison.png`); **impute · keep ≥ 36/40
+was chosen** — it is the only scenario where both sweat networks pass all three
+evaluation checks:
+
+| scenario | proteins | rule |
+|----------|----------|------|
+| **impute · keep ≥ 36/40** (`wgcna/impute`, chosen) | **1707** | keep proteins detected in ≥ 36 of 40 samples (≤ 10% missing); KNN-impute the rest |
+| impute · keep ≥ 32/40 (sensitivity) | 1835 | keep proteins detected in ≥ 32 of 40 samples (≤ 20% missing); KNN-impute the rest |
+| complete case (`wgcna/complete`) | 868 | drop any protein with a missing value (no imputation) |
+
+`preprocess_wgcna.py` builds the chosen (10%) input; `preprocess_wgcna_complete.py`
+builds the complete-case input; the 20% scenario is the relaxed-threshold check.
 
 ## Data notes
 

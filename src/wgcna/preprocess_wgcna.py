@@ -11,8 +11,10 @@ in olink_raw, so it is read from there and aligned onto the merged columns.
 
 Steps (agreed recipe):
   1. Remove the 5 assay-QC failures (entirely missing)            -> 2,938
-  2. Filter: drop a protein missing in > 10% of samples OR with
-     variance < 0.01                                              -> ~1,707
+  2. Filter: keep proteins detected (QC-pass and above LOD) in >= 36 of 40
+     samples (i.e. missing in <= 10% of samples); drop variance < 0.01. -> 1,707
+     (This 10% threshold was chosen after comparing three missing-value
+     scenarios -- 10%, 20%, and complete-case -- see preprocessing_comparison.)
   3. Impute the remaining missing cells (KNN, k=10; or LOD/sqrt2)
   4. Sample-outlier check: hierarchical clustering (flagged, not dropped)
   5. Keep all 40 samples (repeated measures; non-independence noted later)
@@ -47,7 +49,7 @@ EXPR_OUT = OUT_DIR / "wgcna_expression.csv"
 TRAITS_OUT = OUT_DIR / "wgcna_traits.csv"
 
 # ---- WGCNA filtering parameters (edit here) -------------------------------
-MAX_MISSING_FRAC = 0.10   # drop a protein missing (NaN or < LOD) in > 10% of samples
+MAX_MISSING_FRAC = 0.10   # keep proteins detected in >= 36/40 samples (miss <= 10%)
 MIN_VARIANCE = 0.01       # drop a protein with observed variance < 0.01
 KNN_K = 10                # neighbours for KNN imputation
 IMPUTE_METHOD = "knn"     # "knn"  or  "lod"  (LOD / sqrt(2))

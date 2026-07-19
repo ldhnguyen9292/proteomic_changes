@@ -1,0 +1,7 @@
+strategy,nprot,network,module,R2,r,fdr,mmgs,criteria
+Impute 10%,1707,PR2/PT2,black,0.82,0.556,0.044,0.762,3/3
+Impute 10%,1707,PT1/PT2,dimgrey,0.83,0.554,0.028,0.837,3/3
+Impute 20%,1835,PR2/PT2,black,0.825,0.549,0.036,0.76,3/3
+Impute 20%,1835,PT1/PT2,darkgrey,0.813,0.497,0.078,0.475,1/3
+Complete deletion,868,PR2/PT2,black,0.8,0.524,0.036,0.617,2/3
+Complete deletion,868,PT1/PT2,black,0.901,0.509,0.044,0.437,2/3

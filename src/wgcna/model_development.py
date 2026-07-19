@@ -27,15 +27,14 @@ from wgcna_evaluation import evaluate, module_trait_table, scale_free_fit
 
 CASE_DIR = DATA_DIR / "wgcna" / "impute"
 RESULTS_DIR = PROJECT_DIR / "results" / "wgcna" / "impute"
-# Sweat-association targets, matched to the trait that actually varies in each
-# process. Heat stress (Normo->Hyper): whole-body sweat rate is a per-session
-# value and is FLAT within the contrast, so LSR (local sweat rate) is used.
-# Heat acclimation (Pre->Post): whole-body sweat rate varies, so it is used.
+# Sweat-association targets. Local sweat rate (LSR) is the sweat measure that
+# varies per condition, so every contrast is evaluated against LSR for a single,
+# consistent sweat trait (matching hub_prioritization.py and enrichment.py).
 SWEAT_TARGETS = [
-    ("PR1/PT1", "LSR (mg/min/cm2)", "Heat stress pre · LSR"),
-    ("PR2/PT2", "LSR (mg/min/cm2)", "Heat stress post · LSR"),
-    ("PT1/PT2", "Sweat rate (L/h)", "Acclimation heat · sweat"),
-    ("PR1/PR2", "Sweat rate (L/h)", "Acclimation rest · sweat"),
+    ("PR1/PT1", "LSR (mg/min/cm2)", "PR1/PT1 · LSR  (heat stress, pre)"),
+    ("PR2/PT2", "LSR (mg/min/cm2)", "PR2/PT2 · LSR  (heat stress, post)"),
+    ("PT1/PT2", "LSR (mg/min/cm2)", "PT1/PT2 · LSR  (acclimation, heat)"),
+    ("PR1/PR2", "LSR (mg/min/cm2)", "PR1/PR2 · LSR  (acclimation, rest)"),
 ]
 
 

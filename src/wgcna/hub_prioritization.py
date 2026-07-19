@@ -107,7 +107,7 @@ def _plot(top):
     ax.set_xlabel("|Gene Significance| (correlation with LSR)")
     ax.set_title("Prioritized hub proteins for sweating (LSR)\n"
                  "|MM| ≥ 0.70 & |GS| ≥ 0.50, ranked by |MM|·|GS|;  "
-                 "* = known sweat/thermoregulation gene", fontsize=10, fontweight="bold")
+                 "* = known sweat/thermoregulation protein", fontsize=10, fontweight="bold")
     handles = [plt.Line2D([0], [0], marker="o", linestyle="", color=cmap[m], label=m)
                for m in mods]
     ax.legend(handles=handles, title="module", fontsize=8, frameon=False, loc="lower right")
