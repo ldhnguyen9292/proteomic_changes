@@ -58,7 +58,9 @@ def main():
     for ax in axflat[len(nets):]:
         ax.set_visible(False)
     fig.colorbar(im, ax=axes, shrink=0.5, label="module-trait correlation (r)")
-    fig.suptitle("Module–trait correlations, complete-case workflow  (* = BH-FDR < 0.05)",
+    fig.suptitle("Module–trait correlations, complete-case workflow  (* = BH-FDR < 0.05)\n"
+                 "final column (after the gap) = MM-GS vs LSR, criterion 3 — "
+                 "eigengene-trait r and MM-GS are different quantities",
                  fontsize=13, fontweight="bold")
     f1 = RESULTS_DIR / "module_trait_heatmaps.png"
     fig.savefig(f1, bbox_inches="tight", dpi=150)

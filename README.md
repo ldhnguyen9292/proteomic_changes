@@ -90,6 +90,15 @@ python src/wgcna/preprocess_wgcna_complete.py   # -> data/wgcna/complete/ (868 p
 python src/wgcna/visualize_wgcna_complete.py    # -> results/wgcna/complete/
 python src/wgcna/compare_wgcna.py               # -> results/wgcna/impute_vs_complete.png
 #    then run src/wgcna/model_development{,_complete}.ipynb  (Python 3.9 / PyWGCNA)
+
+# 4) hub prioritization + GO/KEGG enrichment (Python 3.9; enrichment needs internet)
+python src/wgcna/enrichment.py impute           # -> results/wgcna/impute/enrichment/
+python src/wgcna/enrichment.py complete         # -> results/wgcna/complete/enrichment/
+python src/wgcna/enrichment.py summary          # -> results/wgcna/enrichment_theme_summary.{csv,png}
+python src/wgcna/hub_prioritization.py          # -> results/wgcna/impute/hub_prioritization.{csv,png}
+#   (hub_prioritization reads enrichment's module_selection.csv — run enrichment first)
+python src/wgcna/mmgs_threshold.py              # -> results/wgcna/mmgs_threshold_impute.png
+#   (reads enrichment's module_selection.csv; no WGCNA rebuild, runs on Python 3.8)
 ```
 
 `src/` is split into subfolders; each script prepends `src/data_pipeline/` to
@@ -128,6 +137,91 @@ evaluation checks:
 
 `preprocess_wgcna.py` builds the chosen (10%) input; `preprocess_wgcna_complete.py`
 builds the complete-case input; the 20% scenario is the relaxed-threshold check.
+
+## Module selection for enrichment
+
+**Scope: the chosen impute 10% workflow, with local sweat rate (LSR) as the sweat
+outcome.** Whole-body `Sweat rate (L/h)` is not screened; the complete-case run is a
+sensitivity check only.
+
+A module is selected only if it passes **all three proposal criteria**:
+
+| # | criterion | cut-off |
+|---|-----------|---------|
+| 1 | scale-free topology fit | R² > 0.8 at the selected soft-power |
+| 2 | module eigengene vs LSR | \|r\| ≥ 0.5 **and** BH-FDR < 0.05 |
+| 3 | MM vs GS within the module | \|r\| > 0.6 **and** p < 0.05 |
+
+This gives **three modules**, both in the heat contrasts:
+
+| network | module | n | R² | r | FDR | MM-GS |
+|---------|--------|---|----|---|-----|-------|
+| PT1/PT2 | dimgrey | 127 | 0.830 | +0.554 | 0.028 | 0.837 |
+| PR2/PT2 | black | 946 | 0.820 | +0.556 | 0.044 | 0.762 |
+| PT1/PT2 | lightgrey | 695 | 0.830 | +0.513 | 0.028 | 0.666 |
+
+Criterion 3 uses the proposal's original **0.6**, not the relaxed 0.5: all three have
+MM-GS ≥ 0.666, so the two cut-offs give an identical result and **no deviation from the
+proposal needs defending**.
+
+### Excluded modules
+
+| module | clears | fails |
+|--------|--------|-------|
+| `PT1/PT2 darkgrey` | 1, 2 (r = +0.528, FDR = 0.028) | **3** — MM-GS = **0.162** |
+| `full black` | 1, FDR = 0.004 | **2** — r = **0.485** < 0.5 |
+
+`PT1/PT2 darkgrey` is the important one. A low MM-GS means module membership and sweat
+association are essentially unrelated inside that module — how central a protein is
+tells you nothing about how sweat-associated it is. Its enrichment is real, but no
+protein-level or hub claim from it would be supported, which is why it is dropped
+rather than reported with a caveat.
+
+`full black` also fails on design grounds independent of the threshold: the full
+network pools all 40 samples across all four exposures, so its LSR correlation is
+confounded by thermal stage (hyperthermic exposures raise LSR and the whole
+heat-response programme together). Only the contrast networks are interpretable.
+
+Excluded modules keep their per-criterion flags (`passes_topology`, `passes_fdr`,
+`passes_mt_r`, `passes_mmgs`) in `module_selection.csv`, and their enrichment CSVs are
+retained under `out_of_scope/` rather than deleted.
+
+### Complete-case sensitivity: zero modules
+
+Under all three criteria the complete-case workflow selects **nothing**:
+
+- `PR2/PT2 black` — R² = **0.79998**, just under the 0.8 topology cut. Its power sweep
+  never reaches 0.8 (max 0.79998 at power 19, the top of the range).
+- `PT1/PT2 black` — MM-GS = **0.437**, fails criterion 3.
+
+Marginal as the first one is, this is a further argument for the impute 10% choice
+already made on the three-check comparison: the complete-case network cannot support
+the analysis under the proposal's own standards.
+
+### Where the MM-GS cut-off should sit
+
+`mmgs_threshold.py` → `results/wgcna/mmgs_threshold_impute.png`.
+
+**The proposal's 0.6 is used.** Among the four modules clearing criteria 1–2, MM-GS is
+bimodal — 0.837, 0.762, 0.666, then a gap down to 0.162 — so **any cut-off in
+0.162–0.666 gives the same three modules**. 0.5 and 0.6 are equivalent here, and 0.6
+avoids justifying a deviation from the proposal. Do not go above 0.666: at 0.7,
+lightgrey would drop out too.
+
+**Judge MM-GS on effect size, not its p-value.** MM-GS is tested over n = proteins in
+the module (127–946 here), and those proteins are co-expressed by construction, so the
+test is anti-conservative twice over: `PT1/PT2 darkgrey` reaches **p = 0.011 at
+r = 0.162**. The `p < 0.05` half of criterion 3 is satisfied by trivially small
+correlations and should not be relied on.
+
+MM-GS is also now shown as a bold final column (after a blank spacer) in
+`module_trait_heatmaps.png`. It is **not** the same quantity as the trait columns: those
+correlate the module *eigengene* with a trait across samples, while MM-GS correlates
+Module Membership with Gene Significance across the proteins *inside* the module.
+
+`out_of_scope/` subfolders hold enrichment CSVs generated under a wider screen
+(whole-body sweat rate, complete-case full network); they are outside the chosen
+scenario and are excluded from the theme summary.
 
 ## Data notes
 

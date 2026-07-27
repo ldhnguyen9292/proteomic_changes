@@ -22,8 +22,11 @@ import PyWGCNA
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "data_pipeline"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))          # wgcna_evaluation
+from scipy.stats import pearsonr
+
 from read_physiological_data import DATA_DIR, PROJECT_DIR
-from wgcna_evaluation import evaluate, module_trait_table, scale_free_fit
+from wgcna_evaluation import (evaluate, module_trait_table, scale_free_fit,
+                              module_membership, gene_significance)
 
 CASE_DIR = DATA_DIR / "wgcna" / "impute"
 RESULTS_DIR = PROJECT_DIR / "results" / "wgcna" / "impute"
@@ -48,8 +51,20 @@ def build(expr, tr, mask, name):
     return o
 
 
+MMGS_TRAIT = "LSR (mg/min/cm2)"     # criterion 3 is reported against LSR
+MMGS_LABEL = "MM-GS · LSR"
+
+
 def module_trait_heatmap(ax, obj, name):
-    """Modules (rows) x traits (cols) coloured by r; '*' marks BH-FDR < 0.05."""
+    """Modules (rows) x traits (cols) coloured by r; '*' marks BH-FDR < 0.05.
+
+    A final column reports **MM-GS vs LSR** (criterion 3) after a blank spacer.
+    It is a DIFFERENT quantity from the trait columns: those correlate the module
+    eigengene with a trait across samples, whereas MM-GS correlates Module
+    Membership with Gene Significance across the proteins inside the module. Both
+    are correlations, so they share the colour scale, but a module can be strong
+    in one and near-zero in the other -- which is exactly why it is shown here.
+    """
     traits = [t for t in obj.datExpr.obs.columns if obj.datExpr.obs[t].nunique() > 1]
     mods = [m[2:] for m in obj.MEs.columns]
     R = pd.DataFrame(index=mods, columns=traits, dtype=float)
@@ -60,15 +75,32 @@ def module_trait_heatmap(ax, obj, name):
             R.loc[m, t] = mt.loc[m, "r"]
             if mt.loc[m, "FDR"] < 0.05:
                 sig.loc[m, t] = "*"
-    im = ax.imshow(R.values.astype(float), cmap="RdBu_r", vmin=-1, vmax=1, aspect="auto")
-    ax.set_xticks(range(len(traits)))
-    ax.set_xticklabels([t.split(" (")[0] for t in traits], rotation=90, fontsize=6)
+
+    R[""] = np.nan                       # blank spacer, keeps the two quantities apart
+    sig[""] = ""
+    for m in mods:
+        MM = module_membership(obj, m)
+        GS = gene_significance(obj, MMGS_TRAIT, MM.index)
+        R.loc[m, MMGS_LABEL] = pearsonr(MM.values, GS.values)[0]
+        sig.loc[m, MMGS_LABEL] = ""
+
+    cols = list(R.columns)
+    cmap = matplotlib.colormaps["RdBu_r"].copy()
+    cmap.set_bad("white")
+    im = ax.imshow(np.ma.masked_invalid(R.values.astype(float)), cmap=cmap,
+                   vmin=-1, vmax=1, aspect="auto")
+    ax.set_xticks(range(len(cols)))
+    ax.set_xticklabels([c.split(" (")[0] for c in cols], rotation=90, fontsize=6)
+    ax.get_xticklabels()[-1].set_fontweight("bold")
     ax.set_yticks(range(len(mods)))
     ax.set_yticklabels(mods, fontsize=7)
     for i in range(len(mods)):
-        for j in range(len(traits)):
-            ax.text(j, i, f"{R.iloc[i, j]:.2f}{sig.iloc[i, j]}",
-                    ha="center", va="center", fontsize=5)
+        for j, c in enumerate(cols):
+            v = R.iloc[i, j]
+            if pd.isna(v):
+                continue
+            ax.text(j, i, f"{v:.2f}{sig.iloc[i, j]}", ha="center", va="center",
+                    fontsize=5, fontweight="bold" if c == MMGS_LABEL else "normal")
     ax.set_title(f"{name}  (power {obj.power}, R²={scale_free_fit(obj)[1]:.2f})", fontsize=9)
     return im
 
@@ -101,7 +133,9 @@ def main():
     for ax in axflat[len(nets):]:
         ax.set_visible(False)
     fig.colorbar(im, ax=axes, shrink=0.5, label="module-trait correlation (r)")
-    fig.suptitle("Module–trait correlations, impute workflow  (* = BH-FDR < 0.05)",
+    fig.suptitle("Module–trait correlations, impute workflow  (* = BH-FDR < 0.05)\n"
+                 "final column (after the gap) = MM-GS vs LSR, criterion 3 — "
+                 "eigengene-trait r and MM-GS are different quantities",
                  fontsize=13, fontweight="bold")
     f1 = RESULTS_DIR / "module_trait_heatmaps.png"
     fig.savefig(f1, bbox_inches="tight", dpi=150)

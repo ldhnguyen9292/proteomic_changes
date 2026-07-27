@@ -1,8 +1,14 @@
 """Prioritize hub proteins for physiological regulation of sweating (impute).
 
-Within each module whose eigengene correlates with local sweat rate (LSR) at
-BH-FDR < 0.05, a hub is a protein that is BOTH a core module member (high
-|Module Membership| = |kME|) AND strongly sweat-correlated (high |Gene
+Hubs are drawn ONLY from modules passing all three proposal criteria -- the same
+screen as enrichment.py, read from its `module_selection.csv` so the two cannot
+drift apart. Criterion 3 (MM-GS) matters especially here: in a module with low
+MM-GS, module membership and sweat association are unrelated, so a high-|MM|
+high-|GS| protein there is not the evidence it appears to be. `PT1/PT2 darkgrey`
+(MM-GS 0.162) is excluded for exactly this reason.
+
+Within each selected module, a hub is a protein that is BOTH a core module member
+(high |Module Membership| = |kME|) AND strongly sweat-correlated (high |Gene
 Significance|). Hubs are ranked by |MM| * |GS| and consolidated across the
 sweat modules (kept once, at their strongest module). Proteins with an
 established role in sweating / thermoregulation are flagged.
@@ -28,14 +34,16 @@ from scipy.stats import pearsonr
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "data_pipeline"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from read_physiological_data import DATA_DIR, PROJECT_DIR
-from wgcna_evaluation import module_trait_table, module_membership, gene_significance
+from wgcna_evaluation import module_membership, gene_significance
 import model_development as md
 
-CASE_DIR = DATA_DIR / "wgcna" / "impute"
-RESULTS_DIR = PROJECT_DIR / "results" / "wgcna" / "impute"
+CASE = "impute"
+CASE_DIR = DATA_DIR / "wgcna" / CASE
+RESULTS_DIR = PROJECT_DIR / "results" / "wgcna" / CASE
+SELECTION = RESULTS_DIR / "enrichment" / "module_selection.csv"
 TRAIT = "LSR (mg/min/cm2)"
-CONTRASTS = {"PR2/PT2": ["PR2", "PT2"], "PT1/PT2": ["PT1", "PT2"]}
-MT_CUT, FDR_MODULE = 0.5, 0.05
+CODES = {"full": None, "PR1/PT1": ["PR1", "PT1"], "PR2/PT2": ["PR2", "PT2"],
+         "PT1/PT2": ["PT1", "PT2"], "PR1/PR2": ["PR1", "PR2"]}
 MM_HUB, GS_HUB, TOP_N = 0.70, 0.50, 20     # hub thresholds + how many to plot
 
 # Compact, established set of sweat / thermoregulation-relevant genes (water &
@@ -57,13 +65,19 @@ def main():
     expr, tr = expr.loc[common], tr.loc[common]
     ex = tr.index.str.split("-").str[-1]
 
+    if not SELECTION.exists():
+        sys.exit(f"missing {SELECTION}\nrun:  python enrichment.py {CASE}")
+    sel = pd.read_csv(SELECTION)
+    sel = sel[sel["selected"]]
+    print(f"modules passing all three criteria: "
+          f"{', '.join(sel.network + ' ' + sel.module)}\n")
+
     rows = []
-    for name, codes in CONTRASTS.items():
-        obj = md.build(expr, tr, pd.Series(ex.isin(codes), index=tr.index),
-                       name.replace("/", "_"))
-        mt = module_trait_table(obj, TRAIT)
-        sig = mt[(mt["r"].abs() >= MT_CUT) & (mt["FDR"] < FDR_MODULE)]
-        for mod in sig.index:
+    for name, grp in sel.groupby("network", sort=False):
+        codes = CODES[name]
+        mask = None if codes is None else pd.Series(ex.isin(codes), index=tr.index)
+        obj = md.build(expr, tr, mask, name.replace("/", "_"))
+        for mod in grp["module"]:
             MM = module_membership(obj, mod)
             GS = gene_significance(obj, TRAIT, MM.index)
             for g in MM.index:
@@ -79,7 +93,7 @@ def main():
     hubs.to_csv(RESULTS_DIR / "hub_prioritization.csv", index=False)
 
     print(f"prioritized {len(hubs)} hub proteins "
-          f"(|MM|>={MM_HUB} & |GS|>={GS_HUB}) across the significant LSR modules\n")
+          f"(|MM|>={MM_HUB} & |GS|>={GS_HUB}) across the modules passing all criteria\n")
     print(hubs.head(TOP_N).to_string(index=False))
     known = hubs[hubs["known_sweat_gene"]]
     print(f"\nwith an established sweat/thermoregulation role: "
