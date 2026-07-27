@@ -74,7 +74,10 @@ def main():
 
     # -- 1. filtering waterfall --
     ax = axes[0, 0]; _recessive(ax)
-    steps, vals = ["merged", "assay-QC", "kept\n(miss>10% &\nvar<0.01)"], [n0, n1, n_keep]
+    # label states what is KEPT. The drop rule is (miss > 10%) OR (var < 0.01);
+    # the previous label read as though kept proteins were the ones with
+    # miss > 10%, and joined the two conditions with "&" instead of "or".
+    steps, vals = ["merged", "assay-QC", "kept\n(miss ≤ 10% and\nvar ≥ 0.01)"], [n0, n1, n_keep]
     ax.bar(steps, vals, color=["#BBBBBB", "#0072B2", "#009E73"], alpha=0.9, zorder=2)
     for i, v in enumerate(vals):
         ax.text(i, v, str(v), ha="center", va="bottom", fontweight="bold")
@@ -83,13 +86,18 @@ def main():
 
     # -- 2. missingness distribution --
     ax = axes[0, 1]; _recessive(ax)
-    ax.hist(miss_frac * 100, bins=40, color="#0072B2", alpha=0.85, zorder=2)
-    ax.axvline(MAX_MISSING_FRAC * 100, color=C_THRESH, linestyle="--", linewidth=1.4)
+    # Missingness is DISCRETE: with 40 samples only 41 values are possible
+    # (0/40 .. 40/40). bins=40 aliases 41 levels into 40 bins, and floating
+    # point (23/40*100 = 57.49999999999999) pushes one level into its
+    # neighbour, leaving a phantom empty bin at 57.5%. Bin on the counts.
+    ax.hist(miss_frac * 40, bins=np.arange(-0.5, 41.5, 1), color="#0072B2",
+            alpha=0.85, zorder=2)
+    ax.axvline(MAX_MISSING_FRAC * 40 + 0.5, color=C_THRESH, linestyle="--", linewidth=1.4)
     ax.set_yscale("log")
-    ax.set_xlabel("Missing (NaN or < LOD) per protein (% of 40)")
+    ax.set_xlabel("Missing (NaN or < LOD) per protein  (samples of 40)")
     ax.set_ylabel("Proteins (log)")
     ax.set_title("Detection / missingness")
-    ax.text(MAX_MISSING_FRAC * 100 + 2, ax.get_ylim()[1] * 0.5,
+    ax.text(MAX_MISSING_FRAC * 40 + 1.2, ax.get_ylim()[1] * 0.5,
             f"drop > {MAX_MISSING_FRAC:.0%}\n({int((miss_frac > MAX_MISSING_FRAC).sum())} proteins)",
             color=C_THRESH, fontsize=8, va="top")
 

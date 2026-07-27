@@ -76,10 +76,15 @@ def main():
 
     # -- 2. missingness distribution (kept = 0% missing only) --
     ax = axes[0, 1]; _recessive(ax)
-    ax.hist(miss_frac * 100, bins=40, color="#0072B2", alpha=0.85, zorder=2)
+    # Missingness is DISCRETE: with 40 samples only 41 values are possible
+    # (0/40 .. 40/40). bins=40 aliases 41 levels into 40 bins, and floating
+    # point (23/40*100 = 57.49999999999999) pushes one level into its
+    # neighbour, leaving a phantom empty bin at 57.5%. Bin on the counts.
+    ax.hist(miss_frac * 40, bins=np.arange(-0.5, 41.5, 1), color="#0072B2",
+            alpha=0.85, zorder=2)
     ax.axvline(0, color=C_THRESH, linestyle="--", linewidth=1.4)
     ax.set_yscale("log")
-    ax.set_xlabel("Missing (NaN or < LOD) per protein (% of 40)")
+    ax.set_xlabel("Missing (NaN or < LOD) per protein  (samples of 40)")
     ax.set_ylabel("Proteins (log)")
     ax.set_title("Detection / missingness")
     ax.text(2, ax.get_ylim()[1] * 0.5,
