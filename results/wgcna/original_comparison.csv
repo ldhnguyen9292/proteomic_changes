@@ -1,0 +1,5 @@
+set,n,contrast,n_orig,overlap,expected,fold,p
+M1 (PT1/PT2 dimgrey),127,PT2-PT1,8,0,0.6,0.0,1.0
+M2 (PR2/PT2 black),937,PT2-PR2,153,140,84.7,1.65,1.52495501128809e-24
+M3 (PT1/PT2 lightgrey),689,PT2-PT1,8,8,3.3,2.46,0.000734476476073758
+Hub proteins (229),229,PT2-PR2,153,104,20.7,5.03,4.2455006806711337e-63
