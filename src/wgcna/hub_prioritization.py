@@ -10,16 +10,17 @@ high-|GS| protein there is not the evidence it appears to be. `PT1/PT2 darkgrey`
 Within each selected module, a hub is a protein that is BOTH a core module member
 (high |Module Membership| = |kME|) AND strongly sweat-correlated (high |Gene
 Significance|). Hubs are ranked by |MM| * |GS| and consolidated across the
-sweat modules (kept once, at their strongest module). Proteins with an
-established role in sweating / thermoregulation are flagged.
+sweat modules (kept once, at their strongest module).
 
 Outputs (results/wgcna/impute/):
-  hub_prioritization.csv   -- ranked hub table
+  hub_prioritization.csv   -- ranked hub table, with each hub's leading
+                              GO/KEGG term from its own module's enrichment
   hub_prioritization.png   -- top hubs (|GS| bars coloured by module, |MM| noted)
 
 Run with the Python 3.9 interpreter (PyWGCNA).
 """
 
+import re
 import sys
 import warnings
 from pathlib import Path
@@ -46,15 +47,29 @@ CODES = {"full": None, "PR1/PT1": ["PR1", "PT1"], "PR2/PT2": ["PR2", "PT2"],
          "PT1/PT2": ["PT1", "PT2"], "PR1/PR2": ["PR1", "PR2"]}
 MM_HUB, GS_HUB, TOP_N = 0.70, 0.50, 20     # hub thresholds + how many to plot
 
-# Compact, established set of sweat / thermoregulation-relevant genes (water &
-# ion transport, sweat-gland secretory, autonomic, skin blood-flow / vascular).
-SWEAT_GENES = {
-    "AQP1", "AQP3", "AQP5", "CA2", "CA6", "CA12",
-    "KLK1", "KLK7", "KLK11", "KLK13", "KLK14",
-    "ATP1A1", "ATP1B1", "SLC12A2", "CFTR", "SCNN1A", "SCNN1B", "SCNN1G",
-    "ANO1", "BEST2", "DCD", "PIP", "SCGB2A2", "MUC7",
-    "CHRM3", "ADRB2", "EDN1", "NOS3", "ACE", "ACE2", "VEGFA", "TIMP1",
-}
+
+
+def _annotate(hubs):
+    """Attach each hub's leading GO/KEGG term, taken from its own module's
+    enrichment result (module-level tests have the power that a 20-gene test
+    does not). Blank where no significant term contains the protein."""
+    cache, terms, fdrs = {}, [], []
+    for _, r in hubs.iterrows():
+        key = (r["contrast"], r["module"])
+        if key not in cache:
+            f = (RESULTS_DIR / "enrichment" /
+                 f"{r['contrast'].replace('/', '_')}_{r['module']}_enrichment.csv")
+            cache[key] = pd.read_csv(f) if f.exists() else None
+        d = cache[key]
+        hit = None
+        if d is not None:
+            m = d[d["Genes"].astype(str).str.split(";").apply(
+                lambda g: r["protein"] in g)]
+            if len(m):
+                hit = m.loc[m["Adjusted P-value"].idxmin()]
+        terms.append(re.sub(r"\s*\(GO:\d+\)$", "", hit["Term"]) if hit is not None else "")
+        fdrs.append(f"{hit['Adjusted P-value']:.1e}" if hit is not None else "")
+    return hubs.assign(top_term=terms, top_term_fdr=fdrs)
 
 
 def main():
@@ -89,16 +104,12 @@ def main():
     hubs = pd.DataFrame(rows).sort_values("score", ascending=False)
     # keep each protein once, at its strongest module
     hubs = hubs.drop_duplicates("protein", keep="first").reset_index(drop=True)
-    hubs["known_sweat_gene"] = hubs["protein"].isin(SWEAT_GENES)
+    hubs = _annotate(hubs)
     hubs.to_csv(RESULTS_DIR / "hub_prioritization.csv", index=False)
 
     print(f"prioritized {len(hubs)} hub proteins "
           f"(|MM|>={MM_HUB} & |GS|>={GS_HUB}) across the modules passing all criteria\n")
     print(hubs.head(TOP_N).to_string(index=False))
-    known = hubs[hubs["known_sweat_gene"]]
-    print(f"\nwith an established sweat/thermoregulation role: "
-          f"{list(known['protein']) or 'none'}")
-
     _plot(hubs.head(TOP_N))
 
 
@@ -114,14 +125,13 @@ def _plot(top):
     ax.hlines(y, 0, top["GS"].abs(), color=colors, linewidth=2, zorder=1)
     ax.scatter(top["GS"].abs(), y, color=colors, s=60, zorder=2,
                edgecolor="white", linewidth=0.6)
-    labels = [f"{'* ' if k else ''}{g}  (MM={mm:.2f})"
-              for g, mm, k in zip(top["protein"], top["MM"], top["known_sweat_gene"])]
+    labels = [f"{g}  (MM={mm:.2f})" for g, mm in zip(top["protein"], top["MM"])]
     ax.set_yticks(list(y))
     ax.set_yticklabels(labels, fontsize=8)
     ax.set_xlabel("|Gene Significance| (correlation with LSR)")
     ax.set_title("Prioritized hub proteins for sweating (LSR)\n"
-                 "|MM| ≥ 0.70 & |GS| ≥ 0.50, ranked by |MM|·|GS|;  "
-                 "* = known sweat/thermoregulation protein", fontsize=10, fontweight="bold")
+                 "|MM| ≥ 0.70 & |GS| ≥ 0.50, ranked by |MM|·|GS|",
+                 fontsize=10, fontweight="bold")
     handles = [plt.Line2D([0], [0], marker="o", linestyle="", color=cmap[m], label=m)
                for m in mods]
     ax.legend(handles=handles, title="module", fontsize=8, frameon=False, loc="lower right")
