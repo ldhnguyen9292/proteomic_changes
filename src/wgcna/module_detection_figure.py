@@ -113,7 +113,7 @@ def main():
     axT.axis("off")
     steps = [
         ("1", "correlate every protein pair", "across the 20 samples of this contrast"),
-        ("2", f"adjacency = |cor|^β  (β = {obj.power})", "signed hybrid: negative correlations → 0"),
+        ("2", f"adjacency = max(cor, 0)^β   (β = {obj.power})", "signed hybrid: negative correlations → 0"),
         ("3", "TOM = topological overlap", "close = correlated AND sharing neighbours"),
         ("4", "cluster proteins on 1 − TOM", "average-linkage hierarchical tree (panel B)"),
         ("5", f"Dynamic Tree Cut, min size {obj.minModuleSize}", "each surviving branch becomes a module"),

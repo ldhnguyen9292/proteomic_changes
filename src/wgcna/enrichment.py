@@ -34,7 +34,7 @@ auditable.
 
 For each selected module, run Enrichr (GO Biological Process + KEGG Human) on the
 module's proteins, save the significant terms, and flag terms matching the target
-themes (heat adaptation, stress response, immune, vascular, electrolyte transport).
+themes (seven topics chosen in advance; see THEMES).
 
 Usage (Python 3.9 with PyWGCNA + gseapy + internet):
   python enrichment.py impute      # -> results/wgcna/impute/enrichment/   (primary)
@@ -73,16 +73,30 @@ R2_CUT = 0.8                     # criterion 1: scale-free topology fit
 MT_CUT, FDR_MODULE = 0.5, 0.05   # criterion 2: |module-trait r| & BH-FDR
 MMGS_CUT, MMGS_P = 0.6, 0.05     # criterion 3: MM vs GS (proposal value)
 THEMES = {
-    "heat adaptation": ["heat", "temperature", "thermogen", "cold", "brown fat"],
+    "heat adaptation": ["heat", "temperature", "thermogen", "cold", "brown fat",
+                        "thermoregulat"],
     "stress response": ["stress", "unfolded protein", "heat shock", "chaperone",
-                         "oxidative", "hypoxia", "hif", "reactive oxygen"],
+                        "oxidative", "hypoxia", "hif", "reactive oxygen"],
     "immune": ["immune", "inflammat", "cytokine", "interleukin", "leukocyte",
                "complement", "lymphocyte", "innate", "interferon", "chemokine",
                "t cell", "b cell"],
-    "vascular": ["vascular", "angiogen", "blood vessel", "endothel", "vasoconstric",
-                 "vasodilat", "shear", "atheroscler", "vegf", "blood pressure"],
-    "electrolyte transport": ["ion transport", "sodium", "potassium", "chloride",
-                              "electrolyte", "cation", "anion", "ion homeostasis"],
+    "blood vessels": ["vascular", "angiogen", "blood vessel", "endothel",
+                      "vasoconstric", "vasodilat", "shear", "atheroscler", "vegf",
+                      "blood pressure"],
+    "salt transport": ["ion transport", "sodium", "potassium", "chloride",
+                       "electrolyte", "cation", "anion", "ion homeostasis"],
+    # named metabolic pathways only. The bare words "metabolic"/"metabolism" are
+    # avoided on purpose: in GO they mostly appear in regulatory boilerplate such
+    # as "Regulation Of Macromolecule Metabolic Process", which is not metabolism
+    # in the physiological sense being asked about here.
+    "metabolism": ["glycolysis", "gluconeogen", "lipid", "fatty acid", "cholesterol",
+                   "insulin", "glucose", "oxidative phosphoryl", "citrate cycle",
+                   "tca cycle", "lipoprotein", "adipo", "glycogen", "steroid",
+                   "purine", "pyrimidine", "amino acid metabolic", "mitochondri",
+                   "atp"],
+    "neurological signaling": ["neuro", "synap", "axon", "nerve", "glial", "myelin",
+                               "dendrit", "neurotransmitter", "acetylcholine",
+                               "adrenergic", "catecholamine"],
 }
 
 
@@ -239,6 +253,9 @@ def theme_summary():
         sel = pd.read_csv(sel_f) if sel_f.exists() else pd.DataFrame()
         for csv in sorted(_out_dir(case).glob("*_enrichment.csv")):
             df = pd.read_csv(csv)
+            # re-derive from Term: THEMES may have changed since the file was written
+            df["theme"] = df["Term"].map(themes_of)
+            df.to_csv(csv, index=False)
             mod = csv.stem.replace("_enrichment", "")
             # module_selection keys on (network, module); the filename joins them
             passes = True
