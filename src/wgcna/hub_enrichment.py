@@ -19,6 +19,7 @@ Outputs (results/wgcna/impute/hub_enrichment/):
   M1_hub_enrichment.csv, M2_..., M3_...   per-module significant terms
   hub_theme_summary.csv                   module x theme counts, hub vs full
   hub_theme_summary.md                    the same table in markdown
+  hub_enrichment.png                      3-panel figure (rates, themes, terms)
 
 Usage (Python 3.8+ with gseapy + internet):
   python hub_enrichment.py
@@ -29,6 +30,10 @@ import warnings
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
 import gseapy as gp
 import pandas as pd
 
@@ -119,6 +124,105 @@ def match_rate(df):
     return int(hit), len(df), round(hit / len(df) * 100, 1)
 
 
+C_HUB, C_FULL, C_THEMED, C_PLAIN = "#0072B2", "#BBBBBB", "#D55E00", "#9C9C9C"
+
+
+def _plot(rows, theme_rows, per_module):
+    """A: hub vs full match rate. B: theme counts. C: top terms per module."""
+    short = {k: k.split(". ", 1)[1] for k in THEMES}
+    fig = plt.figure(figsize=(15.5, 9.4))
+    gs = fig.add_gridspec(2, 2, height_ratios=[1, 1.15], width_ratios=[1, 1.5],
+                          hspace=0.42, wspace=0.26, top=0.86, bottom=0.07,
+                          left=0.06, right=0.975)
+
+    # ---- A. match rate, same vocabulary both sides -------------------------
+    axA = fig.add_subplot(gs[0, 0])
+    mods = [r["module"] for r in rows]
+    x = np.arange(len(mods)); w = 0.36
+    hub = [r["hub_rate"] for r in rows]
+    full = [r["full_rate"] for r in rows]
+    axA.bar(x - w/2, hub, w, color=C_HUB, label="hub proteins only", zorder=3)
+    axA.bar(x + w/2, full, w, color=C_FULL, label="whole module", zorder=3)
+    for i, (h, f, r) in enumerate(zip(hub, full, rows)):
+        axA.text(i - w/2, h + 1.4, f"{h:.0f}%", ha="center", fontsize=10,
+                 fontweight="bold", color=C_HUB)
+        axA.text(i + w/2, f + 1.4, f"{f:.0f}%", ha="center", fontsize=10,
+                 color="#666")
+        arrow = "▲" if h > f else "▼"
+        axA.text(i, max(h, f) + 7, arrow, ha="center", fontsize=13,
+                 color="#2E7D32" if h > f else "#C0392B")
+    axA.set_xticks(x)
+    axA.set_xticklabels([f"{r['module']}\n{r['hubs']} hubs / {r['hub_terms']} terms"
+                         for r in rows], fontsize=9.5)
+    axA.set_ylabel("terms matching ≥ 1 of the 7 themes (%)", fontsize=9.5)
+    axA.set_ylim(0, 78)
+    axA.legend(fontsize=9, frameon=False, loc="upper right")
+    axA.set_title("A. Does restricting to hubs improve the match rate?\n"
+                  "both sides scored with the SAME extended vocabulary",
+                  fontsize=10.5, fontweight="bold", loc="left")
+    axA.grid(axis="y", color="#EEEEEE", zorder=0); axA.set_axisbelow(True)
+    for sp in ("top", "right"): axA.spines[sp].set_visible(False)
+
+    # ---- B. theme counts, hubs only ----------------------------------------
+    axB = fig.add_subplot(gs[0, 1])
+    M = np.array([[d[th] for th in THEMES] for d in theme_rows], float)
+    im = axB.imshow(M, cmap="Oranges", aspect="auto", vmin=0, vmax=max(M.max(), 1))
+    axB.set_xticks(range(len(THEMES)))
+    axB.set_xticklabels([short[t] for t in THEMES], rotation=28, ha="right",
+                        fontsize=8.5)
+    axB.set_yticks(range(len(theme_rows)))
+    axB.set_yticklabels([f"{d['module']}  ({d['hub_terms']} terms)"
+                         for d in theme_rows], fontsize=9.5)
+    for i in range(M.shape[0]):
+        for j in range(M.shape[1]):
+            v = int(M[i, j])
+            axB.text(j, i, v, ha="center", va="center", fontsize=10,
+                     fontweight="bold" if v else "normal",
+                     color="white" if v > M.max() * 0.6 else ("#CCC" if not v else "#222"))
+    for j, th in enumerate(THEMES):
+        if M[:, j].sum() == 0:
+            axB.add_patch(plt.Rectangle((j - .5, -.5), 1, M.shape[0],
+                                        fill=False, edgecolor="#C0392B", lw=2.2))
+    axB.set_title("B. Theme counts for the hub proteins\n"
+                  "red outline = theme with no hits in any module",
+                  fontsize=10.5, fontweight="bold", loc="left")
+    fig.colorbar(im, ax=axB, shrink=0.72, label="terms")
+
+    # ---- C. strongest terms per module -------------------------------------
+    gsC = gs[1, :].subgridspec(1, 3, wspace=0.62)
+    for k, (m, (hub_res, _)) in enumerate(per_module.items()):
+        ax = fig.add_subplot(gsC[0, k])
+        top = hub_res.head(7).iloc[::-1]
+        if len(top):
+            v = -np.log10(top["Adjusted P-value"].values)
+            cols = [C_THEMED if t else C_PLAIN for t in top["theme"].fillna("")]
+            ax.barh(range(len(top)), v, color=cols, zorder=3)
+            ax.set_yticks(range(len(top)))
+            ax.set_yticklabels([t[:44] for t in top["Term"]], fontsize=7.8)
+            for i, val in enumerate(v):
+                ax.text(val + 0.06, i, f"{val:.1f}", va="center", fontsize=7.5,
+                        color="#555")
+        ax.axvline(-np.log10(0.05), color="#C0392B", ls="--", lw=1.2)
+        ax.text(-np.log10(0.05), len(top) - 0.4, " FDR 0.05", fontsize=7.5,
+                color="#C0392B", va="top")
+        ax.set_xlabel("−log10(FDR)", fontsize=8.5)
+        ax.set_xlim(0, max(4.2, (-np.log10(hub_res["Adjusted P-value"].min())) * 1.25))
+        ax.set_title(f"{m} — {len(hub_res)} significant terms", fontsize=10,
+                     fontweight="bold")
+        ax.grid(axis="x", color="#EEEEEE", zorder=0); ax.set_axisbelow(True)
+        for sp in ("top", "right"): ax.spines[sp].set_visible(False)
+
+    fig.text(0.06, 0.475, "C. Strongest hub terms — orange = maps to a theme, "
+             "grey = maps to none", fontsize=10.5, fontweight="bold")
+    fig.suptitle("Hub-protein enrichment: does focusing on hubs sharpen the "
+                 "mapping to the seven themes?", fontsize=14, fontweight="bold",
+                 y=0.955)
+    f = OUT / "hub_enrichment.png"
+    fig.savefig(f, bbox_inches="tight", dpi=165)
+    plt.close(fig)
+    print("saved:", f)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     hubs = pd.read_csv(RES / "hub_prioritization.csv")
@@ -173,6 +277,8 @@ def main():
         for d in theme_rows:
             fh.write(f"| {d['module']} | "
                      + " | ".join(str(d[th]) for th in THEMES) + " |\n")
+
+    _plot(rows, theme_rows, per_module)
 
     print(f"\n{'='*70}\n{summary.to_string(index=False)}")
     print(f"\n{themes_tab.to_string(index=False)}")

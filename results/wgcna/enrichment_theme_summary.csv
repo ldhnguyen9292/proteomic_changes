@@ -1,4 +1,0 @@
-case,module,passes_mmgs,n_terms,heat adaptation,stress response,immune,blood vessels,salt transport,metabolism,neurological signaling
-impute,PR2_PT2_black,True,534,0,11,87,23,6,8,18
-impute,PT1_PT2_dimgrey,True,77,0,1,12,1,0,1,6
-impute,PT1_PT2_lightgrey,True,383,1,0,95,12,4,22,21
