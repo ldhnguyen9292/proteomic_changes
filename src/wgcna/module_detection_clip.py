@@ -99,9 +99,6 @@ def load():
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     expr, tr = load()
-    sel = pd.read_csv(OUT_DIR / "impute" / "enrichment" / "module_selection.csv")
-    del sel  # (only used to confirm the file exists / stays in step with the screen)
-
     # module assignment from the real full network, cached by module_detection_figure
     import pickle
     pkl = Path("/tmp/pt1pt2_obj.pkl")

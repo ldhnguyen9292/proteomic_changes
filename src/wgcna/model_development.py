@@ -32,7 +32,7 @@ CASE_DIR = DATA_DIR / "wgcna" / "impute"
 RESULTS_DIR = PROJECT_DIR / "results" / "wgcna" / "impute"
 # Sweat-association targets. Local sweat rate (LSR) is the sweat measure that
 # varies per condition, so every contrast is evaluated against LSR for a single,
-# consistent sweat trait (matching hub_prioritization.py and enrichment.py).
+# consistent sweat trait.
 SWEAT_TARGETS = [
     ("PR1/PT1", "LSR (mg/min/cm2)", "PR1/PT1 · LSR  (heat stress, pre)"),
     ("PR2/PT2", "LSR (mg/min/cm2)", "PR2/PT2 · LSR  (heat stress, post)"),
