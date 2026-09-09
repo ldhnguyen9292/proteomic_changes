@@ -37,10 +37,6 @@ import warnings
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import requests
 import gseapy as gp
@@ -49,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "data_pipeline"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from read_physiological_data import DATA_DIR, PROJECT_DIR
 from wgcna_evaluation import module_membership, gene_significance
+from hub_profile_plot import plot as plot_hub_profile
 import model_development as md
 
 CASE_DIR = DATA_DIR / "wgcna" / "impute"
@@ -114,81 +111,6 @@ def enrich(genes, library):
     return res[res["Adjusted P-value"] < FDR].sort_values("Adjusted P-value")
 
 
-C_GO, C_KEGG, C_WEAK, C_DOT = "#0072B2", "#009E73", "#C0392B", "#D55E00"
-
-
-def _plot(hub_tables, term_tables):
-    """Row 1: where each module's hubs sit in MM-GS space.
-       Row 2: their strongest GO and KEGG terms, annotated with the overlap.
-
-    Terms resting on a single gene are drawn in red, because with lists this
-    small that is the difference between a finding and an artefact."""
-    n = len(MODULES)
-    fig = plt.figure(figsize=(6.0 * n, 9.6))
-    gs = fig.add_gridspec(2, n, height_ratios=[1, 1.35], hspace=0.30, wspace=0.30,
-                          top=0.885, bottom=0.07, left=0.055, right=0.98)
-
-    for k, (name, h) in enumerate(hub_tables.items()):
-        # ---- MM vs GS -----------------------------------------------------
-        ax = fig.add_subplot(gs[0, k])
-        ax.scatter(h.MM, h.GS, s=26 + 240 * h.score, color=C_DOT, alpha=.65,
-                   edgecolor="white", linewidth=.7, zorder=3)
-        for j, r in enumerate(h.head(5).itertuples()):
-            off = [(5, 5), (5, -10), (-5, 6), (5, 8), (-5, -11)][j % 5]
-            ax.annotate(r.symbol, (r.MM, r.GS), fontsize=8.5, fontweight="bold",
-                        xytext=off, textcoords="offset points",
-                        ha="right" if off[0] < 0 else "left")
-        ax.axvline(MM_HUB, color="#999", ls="--", lw=1)
-        ax.axhline(GS_HUB, color="#999", ls="--", lw=1)
-        ax.set_xlim(MM_HUB - 0.03, 1.0)
-        ax.set_ylim(GS_HUB - 0.03, max(0.9, h.GS.max() + 0.05))
-        ax.set_xlabel("Module Membership (MM)", fontsize=9.5)
-        if k == 0:
-            ax.set_ylabel("Gene Significance vs LSR (GS)", fontsize=9.5)
-        ax.set_title(f"{name}\n{len(h)} hub proteins", fontsize=10.5,
-                     fontweight="bold")
-        ax.grid(color="#EEEEEE", zorder=0); ax.set_axisbelow(True)
-        for sp in ("top", "right"): ax.spines[sp].set_visible(False)
-
-        # ---- top terms ----------------------------------------------------
-        ax = fig.add_subplot(gs[1, k])
-        go, kegg = term_tables[name]
-        rows = ([(r["Term"], r["Adjusted P-value"], r["Overlap"], C_GO)
-                 for _, r in go.head(TOP_TERMS).iterrows()] +
-                [(r["Term"], r["Adjusted P-value"], r["Overlap"], C_KEGG)
-                 for _, r in kegg.head(TOP_TERMS).iterrows()])[::-1]
-        if rows:
-            v = [-np.log10(f) for _, f, _, _ in rows]
-            # a term driven by one gene is coloured red regardless of library
-            cols = [C_WEAK if o.split("/")[0] == "1" else c for _, _, o, c in rows]
-            ax.barh(range(len(rows)), v, color=cols, zorder=3)
-            ax.set_yticks(range(len(rows)))
-            ax.set_yticklabels([t[:46] for t, _, _, _ in rows], fontsize=8)
-            for i, ((_, _, o, _), val) in enumerate(zip(rows, v)):
-                ax.text(val + .05, i, o, va="center", fontsize=7.8, color="#555")
-        ax.axvline(-np.log10(FDR), color="#C0392B", ls="--", lw=1.2)
-        ax.text(-np.log10(FDR), len(rows) - .35, " FDR 0.05", fontsize=7.5,
-                color="#C0392B", va="top")
-        ax.set_xlabel("−log10(FDR)     (label = overlap)", fontsize=9)
-        ax.set_xlim(0, max(4.2, max(v) * 1.3 if rows else 4.2))
-        ax.grid(axis="x", color="#EEEEEE", zorder=0); ax.set_axisbelow(True)
-        for sp in ("top", "right"): ax.spines[sp].set_visible(False)
-
-    handles = [plt.Rectangle((0, 0), 1, 1, color=c) for c in (C_GO, C_KEGG, C_WEAK)]
-    fig.legend(handles, ["GO Biological Process", "KEGG",
-                         "driven by a single gene — do not interpret"],
-               loc="lower center", ncol=3, frameon=False, fontsize=9.5,
-               bbox_to_anchor=(0.5, 0.008))
-    fig.text(0.055, 0.512, "Strongest terms per module — no keyword or topic "
-             "filter applied", fontsize=11, fontweight="bold")
-    fig.suptitle("Hub proteins of the three modules, and what they enrich for",
-                 fontsize=14.5, fontweight="bold", y=0.955)
-    f = OUT / "hub_profile.png"
-    fig.savefig(f, bbox_inches="tight", dpi=165)
-    plt.close(fig)
-    print("saved:", f)
-
-
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     expr = pd.read_csv(CASE_DIR / "wgcna_expression.csv", index_col=0)
@@ -234,7 +156,10 @@ def main():
             term_tables.setdefault(name, []).append(res)
             res.to_csv(OUT / f"{tag}_{'GO' if lib == GO_LIB else 'KEGG'}.csv",
                        index=False)
-            md_out += [f"**Top {TOP_TERMS} — {title}**", "",
+            head = ("nothing significant" if not len(res)
+                    else f"all {len(res)}" if len(res) <= TOP_TERMS
+                    else f"top {TOP_TERMS} of {len(res)}")
+            md_out += [f"**{title} — {head} at FDR < {FDR}**", "",
                        "| Term | Overlap | Adj. p (FDR) |", "|---|---|---|"]
             if len(res):
                 for _, r in res.head(TOP_TERMS).iterrows():
@@ -245,7 +170,8 @@ def main():
             md_out.append("")
             print(f"  {tag:<20} {title:<24} {len(res):>3} terms at FDR<{FDR}")
 
-    _plot(hub_tables, term_tables)
+    plot_hub_profile(hub_tables, term_tables, OUT / "hub_profile.png",
+                     MM_HUB, GS_HUB, FDR, TOP_TERMS)
     pd.concat(all_rows).to_csv(OUT / "hub_proteins.csv", index=False)
     (OUT / "hub_profile.md").write_text("\n".join(md_out))
     print("\nsaved:", OUT / "hub_profile.md")

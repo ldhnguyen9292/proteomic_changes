@@ -19,7 +19,7 @@ Hub = |MM| ≥ 0.7 and |GS| ≥ 0.5, ranked by |MM| × |GS|. No keyword list or 
 | 9 | **FAM3C** | FAM3 metabolism regulating signaling molecule C | 0.79 | 0.68 | 0.54 |
 | 10 | **HSPG2** | heparan sulfate proteoglycan 2 | 0.79 | 0.66 | 0.53 |
 
-**Top 5 — GO Biological Process**
+**GO Biological Process — top 5 of 6 at FDR < 0.05**
 
 | Term | Overlap | Adj. p (FDR) |
 |---|---|---|
@@ -29,7 +29,7 @@ Hub = |MM| ≥ 0.7 and |GS| ≥ 0.5, ranked by |MM| × |GS|. No keyword list or 
 | Positive Regulation Of Lymphocyte Migration (GO:2000403) | 2/16 | 1.96e-02 |
 | Cholesterol Efflux (GO:0033344) | 2/23 | 3.28e-02 |
 
-**Top 5 — KEGG**
+**KEGG — all 4 at FDR < 0.05**
 
 | Term | Overlap | Adj. p (FDR) |
 |---|---|---|
@@ -55,7 +55,7 @@ Hub = |MM| ≥ 0.7 and |GS| ≥ 0.5, ranked by |MM| × |GS|. No keyword list or 
 | 9 | **TXNRD1** | thioredoxin reductase 1 | 0.76 | 0.72 | 0.55 |
 | 10 | **CC2D1A** | coiled-coil and C2 domain containing 1A | 0.95 | 0.58 | 0.55 |
 
-**Top 5 — GO Biological Process**
+**GO Biological Process — top 5 of 24 at FDR < 0.05**
 
 | Term | Overlap | Adj. p (FDR) |
 |---|---|---|
@@ -65,7 +65,7 @@ Hub = |MM| ≥ 0.7 and |GS| ≥ 0.5, ranked by |MM| × |GS|. No keyword list or 
 | Positive Regulation Of Protein Phosphorylation (GO:0001934) | 13/377 | 2.34e-02 |
 | Ras Protein Signal Transduction (GO:0007265) | 8/144 | 2.34e-02 |
 
-**Top 5 — KEGG**
+**KEGG — top 5 of 28 at FDR < 0.05**
 
 | Term | Overlap | Adj. p (FDR) |
 |---|---|---|
@@ -92,7 +92,7 @@ Hub = |MM| ≥ 0.7 and |GS| ≥ 0.5, ranked by |MM| × |GS|. No keyword list or 
 | 9 | **CELSR2** | cadherin EGF LAG seven-pass G-type receptor 2 | 0.74 | 0.58 | 0.43 |
 | 10 | **NPTX1** | neuronal pentraxin 1 | 0.77 | 0.50 | 0.39 |
 
-**Top 5 — GO Biological Process**
+**GO Biological Process — top 5 of 23 at FDR < 0.05**
 
 | Term | Overlap | Adj. p (FDR) |
 |---|---|---|
@@ -102,7 +102,7 @@ Hub = |MM| ≥ 0.7 and |GS| ≥ 0.5, ranked by |MM| × |GS|. No keyword list or 
 | Regulation Of Nervous System Process (GO:0031644) | 1/18 | 4.82e-02 |
 | Cell-Cell Signaling By Wnt (GO:0198738) | 1/23 | 4.82e-02 |
 
-**Top 5 — KEGG**
+**KEGG — all 2 at FDR < 0.05**
 
 | Term | Overlap | Adj. p (FDR) |
 |---|---|---|
